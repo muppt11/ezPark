@@ -8,12 +8,16 @@ export function EventList({ events }: { events: UpcomingEvent[] }) {
   if (events.length === 0) return <p className="text-muted">No upcoming events in the next 60 days.</p>;
 
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
+    // One column on phones; two columns of cards on wide screens so more events fit on screen.
+    <ul className="grid gap-3 lg:grid-cols-2">
       {events.map((e) => {
         const [weekday, month, day] = formatEventDate(e.startsAt).replace(",", "").split(" ");
         return (
           <li key={e.id}>
-            <Link href={`/find?event=${e.id}`} className="flex items-center gap-4 px-4 py-3.5 hover:bg-bg">
+            <Link
+              href={`/find?event=${e.id}`}
+              className="flex h-full items-center gap-4 rounded-card border border-border bg-surface px-4 py-3.5 hover:border-primary"
+            >
               <div className="w-14 shrink-0 text-center">
                 <p className="text-xs font-semibold uppercase text-accent">{month}</p>
                 <p className="text-2xl leading-none font-bold">{day}</p>

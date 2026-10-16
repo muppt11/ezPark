@@ -118,7 +118,13 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
 
     const bounds = new LngLatBounds([venue.lng, venue.lat], [venue.lng, venue.lat]);
     pins.forEach((p) => bounds.extend([p.lng, p.lat]));
-    if (approxCircle) bounds.extend([approxCircle.lng, approxCircle.lat]);
+    if (approxCircle) {
+      // Include the circle's full extent, not just its center, so it isn't cut off.
+      const dLat = approxCircle.radiusMeters / 111_320;
+      const dLng = approxCircle.radiusMeters / (111_320 * Math.cos((approxCircle.lat * Math.PI) / 180));
+      bounds.extend([approxCircle.lng - dLng, approxCircle.lat - dLat]);
+      bounds.extend([approxCircle.lng + dLng, approxCircle.lat + dLat]);
+    }
     const fit = () => {
       const { width, height } = m.getContainer().getBoundingClientRect();
       if (width > 0 && height > 0) m.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 0 });

@@ -51,8 +51,8 @@ export function FindView({ event, venue, otherEvents, listings, hiddenByWalk, wa
     // Fills the screen under the header (and above the phone tab bar, which main pads by 5rem).
     <div className="flex h-[calc(100dvh-9rem)] flex-col md:h-[calc(100dvh-4rem)]">
       {/* Search bar, as in the ui_inspo results header */}
-      <div className="border-b border-border bg-surface px-4 py-3">
-        <div className="mx-auto flex max-w-[100rem] flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="border-b border-border bg-surface px-4 py-3 lg:px-8">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <form action="/find" className="flex h-12 shrink-0 items-center md:flex-1 gap-2 rounded-control border border-border-strong bg-surface px-3 md:max-w-sm">
             <Search size={18} className="shrink-0 text-muted" />
             <input
@@ -108,10 +108,10 @@ export function FindView({ event, venue, otherEvents, listings, hiddenByWalk, wa
         </div>
       </div>
 
-      <div className="relative grid min-h-0 flex-1 md:grid-cols-[minmax(22rem,30rem)_1fr]">
+      <div className="relative grid min-h-0 flex-1 md:grid-cols-[minmax(22rem,30rem)_1fr] xl:grid-cols-[34rem_1fr]">
         <section
           aria-label="Driveways"
-          className={`min-h-0 overflow-y-auto bg-bg px-4 py-4 ${mobileView === "map" ? "hidden md:block" : ""}`}
+          className={`min-h-0 overflow-y-auto bg-bg px-4 py-4 lg:pl-8 ${mobileView === "map" ? "hidden md:block" : ""}`}
         >
           <h1 className="text-lg font-bold">
             {listings.length} {listings.length === 1 ? "driveway" : "driveways"} near {venue.name}

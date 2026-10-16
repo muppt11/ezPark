@@ -27,14 +27,14 @@ async function Spot({ params }: Pick<PageProps<"/spots/[id]">, "params">) {
   const since = host.since.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:py-10">
+    <div className="mx-auto max-w-[96rem] px-4 py-6 md:py-8 lg:px-8">
       {event && (
         <Link href={`/find?event=${event.id}`} className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
           <ChevronLeft size={16} /> All driveways for this event
         </Link>
       )}
 
-      <div className="mt-4 grid gap-8 md:grid-cols-[1fr_22rem]">
+      <div className="mt-4 grid gap-8 md:grid-cols-[1fr_22rem] xl:grid-cols-[1fr_26rem] xl:gap-12">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{l.areaLabel}</h1>
           <p className="mt-2 flex items-center gap-1.5 text-lg">
@@ -54,7 +54,7 @@ async function Spot({ params }: Pick<PageProps<"/spots/[id]">, "params">) {
             </p>
           )}
 
-          <div className="mt-6 h-72 overflow-hidden rounded-card border border-border md:h-96">
+          <div className="mt-6 h-72 overflow-hidden rounded-card border border-border md:h-[28rem]">
             <SpotMap venue={venue} lat={l.approxLat} lng={l.approxLng} />
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-sm text-muted">

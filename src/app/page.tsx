@@ -15,7 +15,7 @@ import { UseMyLocation } from "./UseMyLocation";
 export default function Home() {
   return (
     <>
-      <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-14 md:grid-cols-[1fr_minmax(0,26rem)] md:gap-16 md:pt-16 md:pb-20">
+      <section className="mx-auto grid max-w-[96rem] items-center gap-10 px-4 pt-8 pb-10 md:grid-cols-[1fr_minmax(0,30rem)] md:gap-12 md:pt-10 md:pb-12 lg:px-8 xl:grid-cols-[1fr_minmax(0,36rem)]">
         <div className="max-w-xl">
           <p className="text-sm font-medium text-muted">Austin, TX</p>
           <h1 className="mt-2 text-[34px] leading-[1.1] font-bold tracking-tight sm:text-5xl">
@@ -31,7 +31,7 @@ export default function Home() {
 
       {/* Like the "Find Austin Parking Near You" band in ui_inspo */}
       <section className="border-t border-border bg-bg">
-        <div className="mx-auto max-w-3xl px-4 py-12 md:py-16">
+        <div className="mx-auto max-w-[96rem] px-4 py-10 md:py-12 lg:px-8">
           <Suspense fallback={<div className="h-80 rounded-card bg-surface" />}>
             <Upcoming />
           </Suspense>

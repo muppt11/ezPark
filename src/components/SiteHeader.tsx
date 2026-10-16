@@ -5,7 +5,7 @@ import { DesktopNavSlot } from "@/components/nav/NavSlots";
 export function SiteHeader() {
   return (
     <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+      <div className="flex h-16 w-full items-center justify-between gap-4 px-4 lg:px-8">
         <Link href="/" className="text-[26px] font-extrabold tracking-tight text-primary">
           ezPark
         </Link>
