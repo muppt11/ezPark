@@ -115,6 +115,9 @@ try {
   await driver.click("text=Use test card 4242");
   await driver.click("button:has-text('Pay')");
   await driver.waitForURL("**/parking/**?new=1");
+  // The reservation details stream in after navigation; wait for them before reading the page.
+  await driver.waitForSelector("text=You're booked");
+  await driver.waitForSelector("text=gate code 4321");
   const bookSecs = (Date.now() - bookStart) / 1000;
   const reservation = await driver.locator("main").innerText();
   assert.match(reservation, /You're booked/);
