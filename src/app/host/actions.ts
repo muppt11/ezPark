@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { fuzzPoint, walkingRoute } from "@/lib/geo";
 import { geocodeAddress } from "@/lib/geocode";
 import { venuesNear, type VenueOption } from "@/lib/host";
+import { DEMO_EVENTS_HIDDEN } from "@/lib/search";
 import { createPayoutAccount } from "@/lib/payments";
 import { savePhoto } from "@/lib/uploads";
 
@@ -46,8 +47,9 @@ const dollars = (min: number, max: number, label: string) =>
 
 const listingSchema = z.object({
   address: z.string().trim().min(5, "Enter your street address.").max(200),
-  venueId: z.string().min(1, "Pick a venue."),
-  eventIds: z.array(z.string()),
+  eventIds: z.array(z.string()).max(30, "Pick up to 30 events at a time."),
+  /** Only used when no events are picked: the venue to save a draft for. */
+  draftVenueId: z.string().optional(),
   carCount: z.coerce.number().int().min(1).max(6),
   pricingMode: z.enum(["FLAT", "HOURLY", "BOTH"]),
   opensHoursBefore: z.coerce.number().int().min(1).max(8),
@@ -59,8 +61,8 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
   const user = await requireHostUser("/host/new");
   const parsed = listingSchema.safeParse({
     address: formData.get("address") ?? "",
-    venueId: formData.get("venueId") ?? "",
-    eventIds: formData.getAll("eventIds").map(String),
+    eventIds: [...new Set(formData.getAll("eventIds").map(String))],
+    draftVenueId: formData.get("draftVenueId") ? String(formData.get("draftVenueId")) : undefined,
     carCount: formData.get("carCount") ?? 1,
     pricingMode: formData.get("pricingMode") ?? "FLAT",
     opensHoursBefore: formData.get("opensHoursBefore") ?? 3,
@@ -93,50 +95,66 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
   const place = await geocodeAddress(d.address);
   if (!place) return { fieldErrors: { address: "We couldn't find that address in the Austin area." } };
 
-  const venue = await db.venue.findUnique({
-    where: { id: d.venueId },
-    include: { events: { where: { id: { in: d.eventIds }, startsAt: { gte: new Date() } } } },
-  });
-  if (!venue) return { fieldErrors: { venueId: "Pick a venue." } };
+  // Picked events can be at different venues (e.g. a football game and an arena concert).
+  const events = d.eventIds.length
+    ? await db.event.findMany({
+        where: { id: { in: d.eventIds }, startsAt: { gte: new Date() }, ...DEMO_EVENTS_HIDDEN },
+        include: { venue: true },
+      })
+    : [];
+  if (d.eventIds.length && events.length === 0) return { error: "Those events are no longer available. Pick again." };
+  const draftVenue =
+    events.length === 0 && d.draftVenueId ? await db.venue.findUnique({ where: { id: d.draftVenueId } }) : null;
+  if (events.length === 0 && !draftVenue) return { fieldErrors: { eventIds: "Pick at least one event, or a venue for your draft." } };
 
   const saved = await savePhoto(photo as File);
   if ("error" in saved) return { fieldErrors: { photo: saved.error } };
 
-  const walk = await walkingRoute(place, venue);
+  // One fuzzed point for the driveway, shared by all its listings: separate random points
+  // per listing could be averaged to find the house.
   const approx = fuzzPoint(place);
+  const venues = new Map<string, { name: string; lat: number; lng: number }>();
+  for (const e of events) venues.set(e.venueId, e.venue);
+  if (draftVenue) venues.set(draftVenue.id, draftVenue);
+  const walks = new Map<string, Awaited<ReturnType<typeof walkingRoute>>>();
+  for (const [id, v] of venues) walks.set(id, await walkingRoute(place, v));
+
   // Listings go live only once payouts are set up (introduced at the first listing).
   const live = (await db.user.findUnique({ where: { id: user.id }, select: { payoutsEnabled: true } }))?.payoutsEnabled ?? false;
 
-  const common = {
-    hostId: user.id,
-    venueId: venue.id,
-    photoUrl: saved.url,
-    carCount: d.carCount,
-    pricingMode: d.pricingMode,
-    flatPrice,
-    hourlyRate,
-    opensHoursBefore: d.opensHoursBefore,
-    closesHoursAfter: d.closesHoursAfter,
-    address: place.label,
-    instructions: d.instructions || null,
-    lat: place.lat,
-    lng: place.lng,
-    approxLat: approx.lat,
-    approxLng: approx.lng,
-    areaLabel: place.road ? `Near ${place.road}` : `Near ${venue.name}`,
-    walkMeters: walk.meters,
-    walkMinutes: walk.minutes,
-    walkSource: walk.source,
+  const common = (venueId: string) => {
+    const walk = walks.get(venueId)!;
+    return {
+      hostId: user.id,
+      venueId,
+      photoUrl: saved.url,
+      carCount: d.carCount,
+      pricingMode: d.pricingMode,
+      flatPrice,
+      hourlyRate,
+      opensHoursBefore: d.opensHoursBefore,
+      closesHoursAfter: d.closesHoursAfter,
+      address: place.label,
+      instructions: d.instructions || null,
+      lat: place.lat,
+      lng: place.lng,
+      approxLat: approx.lat,
+      approxLng: approx.lng,
+      areaLabel: place.road ? `Near ${place.road}` : `Near ${venues.get(venueId)!.name}`,
+      walkMeters: walk.meters,
+      walkMinutes: walk.minutes,
+      walkSource: walk.source,
+    };
   };
 
-  if (venue.events.length === 0) {
-    // No events picked (or none announced yet): save a draft for this venue.
+  if (events.length === 0) {
+    // No events announced or picked: save a draft for the chosen venue.
     const now = new Date();
-    await db.listing.create({ data: { ...common, status: "DRAFT", openFrom: now, openUntil: now } });
+    await db.listing.create({ data: { ...common(draftVenue!.id), status: "DRAFT", openFrom: now, openUntil: now } });
   } else {
     await db.listing.createMany({
-      data: venue.events.map((e) => ({
-        ...common,
+      data: events.map((e) => ({
+        ...common(e.venueId),
         eventId: e.id,
         status: live ? ("ACTIVE" as const) : ("DRAFT" as const),
         openFrom: new Date(e.startsAt.getTime() - d.opensHoursBefore * 3600_000),
@@ -146,8 +164,8 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
   }
 
   revalidatePath("/host");
-  if (venue.events.length > 0 && !live) redirect("/host/payouts?from=listing");
-  redirect(`/host?${venue.events.length ? `published=${venue.events.length}` : "draft=1"}`);
+  if (events.length > 0 && !live) redirect("/host/payouts?from=listing");
+  redirect(`/host?${events.length ? `published=${events.length}` : "draft=1"}`);
 }
 
 export type PayoutState = { fieldErrors?: Record<string, string>; values?: Record<string, string> };

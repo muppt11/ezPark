@@ -56,9 +56,12 @@ try {
   await host.goto(`${BASE}/host/new`);
   await host.fill("input[name=address]", "2100 San Antonio St, Austin, TX");
   await host.click("button:has-text('Find')");
-  await host.waitForSelector("text=Which event?", { timeout: 30_000 });
-  const venue = await host.locator("[aria-label=Venue] label").first().innerText();
-  assert.match(venue, /Darrell K Royal|Moody/, "closest venue should be a campus venue");
+  await host.waitForSelector("text=Which events?", { timeout: 30_000 });
+  const firstVenue = await host.locator("fieldset legend").first().innerText();
+  assert.match(firstVenue, /Darrell K Royal|Moody/, "closest venue should be a campus venue");
+  // Pick events at two venues: the pre-selected football game plus a Moody Center concert.
+  await host.locator("label", { hasText: "Concert at Moody Center" }).first().locator("input").check();
+  await host.waitForSelector("text=2 events selected");
   await host.setInputFiles("input[type=file]", path.resolve("public/demo/driveway-stone.jpg"));
   await host.waitForSelector("text=Change photo");
   await host.fill("input[name=flatPrice]", "30");
@@ -69,9 +72,12 @@ try {
   await shot(host, "2-host-payouts");
   await host.click("text=Fill test details");
   await host.click("button:has-text('Save and publish')");
-  await host.waitForURL((u) => u.pathname === "/host" && u.searchParams.has("published"));
+  await host.waitForURL((u) => u.pathname === "/host" && u.searchParams.get("published") === "2");
   const listSecs = (Date.now() - listStart) / 1000;
-  step(`host listed a driveway and set up payouts in ${listSecs.toFixed(1)}s (goal < 120s)`);
+  const listings = await host.locator("main li", { hasText: "Near San Antonio" }).allInnerTexts();
+  assert.equal(listings.length, 2, "one listing per picked event");
+  assert.ok(listings.some((t) => /Football/i.test(t)) && listings.some((t) => /Concert at Moody/.test(t)), "listings at both venues");
+  step(`host listed a driveway for events at 2 venues and set up payouts in ${listSecs.toFixed(1)}s (goal < 120s)`);
   assert.ok(listSecs < 120);
 
   // ── Driver searches, reserves and pays (goal: under 3 minutes) ────────────

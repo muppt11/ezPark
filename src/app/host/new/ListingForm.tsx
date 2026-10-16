@@ -21,31 +21,35 @@ export function ListingForm({ payoutsEnabled }: { payoutsEnabled: boolean }) {
   const [address, setAddress] = useState("");
   const [lookup, setLookup] = useState<LookupResult | null>(null);
   const [finding, startFind] = useTransition();
-  const [venueId, setVenueId] = useState("");
   const [eventIds, setEventIds] = useState<string[]>([]);
   const [photo, setPhoto] = useState<{ file: File; preview: string } | null>(null);
   const [carCount, setCarCount] = useState("1");
   const [mode, setMode] = useState<Mode>("FLAT");
 
   const place = lookup?.ok ? lookup : null;
-  const venue = place?.venues.find((v) => v.id === venueId);
+  // Every nearby venue's events in one list (closest venue first), so a driveway near
+  // campus can be listed for a football game and a concert at the arena together.
+  const withEvents = place?.venues.filter((v) => v.events.length > 0) ?? [];
 
   function find() {
     startFind(async () => {
       const r = await lookupAddress(address);
       setLookup(r);
       if (r.ok) {
-        const first = r.venues.find((v) => v.events.length) ?? r.venues[0];
-        setVenueId(first?.id ?? "");
-        setEventIds(first?.events[0] ? [first.events[0].id] : []);
+        // Pre-select the next event at the closest venue; the host can add more.
+        const first = r.venues.find((v) => v.events.length)?.events[0];
+        setEventIds(first ? [first.id] : []);
       }
     });
   }
 
-  function pickVenue(id: string) {
-    setVenueId(id);
-    const v = place?.venues.find((x) => x.id === id);
-    setEventIds(v?.events[0] ? [v.events[0].id] : []);
+  function toggle(id: string, on: boolean) {
+    setEventIds((ids) => (on ? [...new Set([...ids, id])] : ids.filter((x) => x !== id)));
+  }
+
+  function toggleVenue(ids: string[]) {
+    const allOn = ids.every((id) => eventIds.includes(id));
+    setEventIds((cur) => (allOn ? cur.filter((x) => !ids.includes(x)) : [...new Set([...cur, ...ids])]));
   }
 
   async function pickPhoto(file: File | undefined) {
@@ -100,65 +104,76 @@ export function ListingForm({ payoutsEnabled }: { payoutsEnabled: boolean }) {
 
       {place && (
         <>
-          {/* 2. Venue + events */}
-          <Step n={2} title="Which event?">
-            <input type="hidden" name="venueId" value={venueId} />
-            <div className="space-y-2" role="radiogroup" aria-label="Venue">
-              {place.venues.slice(0, 4).map((v) => (
-                <label
-                  key={v.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-control border-2 border-border bg-surface px-4 py-3 has-[:checked]:border-primary"
-                >
-                  <input type="radio" name="venuePick" checked={v.id === venueId} onChange={() => pickVenue(v.id)} className="accent-[var(--primary)]" />
-                  <span className="flex-1 font-medium">{v.name}</span>
-                  <span className={`text-sm ${v.distanceMeters > FAR_M ? "text-danger" : "text-muted"}`}>
-                    {formatMiles(v.distanceMeters)} away
-                  </span>
-                </label>
-              ))}
-            </div>
-            {venue && venue.distanceMeters > FAR_M && (
-              <p className="flex items-start gap-2 text-sm text-danger">
-                <TriangleAlert size={16} className="mt-0.5 shrink-0" />
-                Your driveway is more than 1 mile from {venue.name}. Most drivers want a shorter walk, so expect fewer bookings.
-              </p>
-            )}
-            {venue && venue.events.length > 0 ? (
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium">Events (pick one or more)</legend>
-                <div className="divide-y divide-border rounded-control border border-border bg-surface">
-                  {venue.events.map((e) => (
-                    <label key={e.id} className="flex cursor-pointer items-center gap-3 px-4 py-3">
-                      <input
-                        type="checkbox"
-                        name="eventIds"
-                        value={e.id}
-                        checked={eventIds.includes(e.id)}
-                        onChange={(ev) =>
-                          setEventIds((ids) => (ev.target.checked ? [...ids, e.id] : ids.filter((x) => x !== e.id)))
-                        }
-                        className="h-5 w-5 accent-[var(--primary)]"
-                      />
-                      <span className="flex-1">
-                        <span className="block font-medium">{e.name}</span>
-                        <span className="text-sm text-muted">
-                          {formatEventDate(new Date(e.startsAt))} · {formatTime(new Date(e.startsAt))}
-                        </span>
+          {/* 2. Events, grouped by venue */}
+          <Step n={2} title="Which events?">
+            <p className="-mt-2 text-sm text-muted">Pick as many as you like, at any nearby venue. Each event becomes its own listing.</p>
+            {withEvents.map((v) => {
+              const ids = v.events.map((e) => e.id);
+              const allOn = ids.every((id) => eventIds.includes(id));
+              const far = v.distanceMeters > FAR_M;
+              return (
+                <fieldset key={v.id} className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <legend className="font-semibold">
+                      {v.name}{" "}
+                      <span className={`text-sm font-normal ${far ? "text-danger" : "text-muted"}`}>
+                        · {formatMiles(v.distanceMeters)} away
                       </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+                    </legend>
+                    <button type="button" onClick={() => toggleVenue(ids)} className="shrink-0 text-sm font-semibold text-primary">
+                      {allOn ? "Clear" : "Select all"}
+                    </button>
+                  </div>
+                  {far && (
+                    <p className="flex items-start gap-2 text-sm text-danger">
+                      <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+                      More than 1 mile away. Most drivers want a shorter walk, so expect fewer bookings here.
+                    </p>
+                  )}
+                  <div className="divide-y divide-border rounded-control border border-border bg-surface">
+                    {v.events.map((e) => (
+                      <label key={e.id} className="flex cursor-pointer items-center gap-3 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          name="eventIds"
+                          value={e.id}
+                          checked={eventIds.includes(e.id)}
+                          onChange={(ev) => toggle(e.id, ev.target.checked)}
+                          className="h-5 w-5 accent-[var(--primary)]"
+                        />
+                        <span className="flex-1">
+                          <span className="block font-medium">{e.name}</span>
+                          <span className="text-sm text-muted">
+                            {formatEventDate(new Date(e.startsAt))} · {formatTime(new Date(e.startsAt))}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              );
+            })}
+
+            {err.eventIds && <p className="text-sm text-danger">{err.eventIds}</p>}
+            {eventIds.length > 0 ? (
+              <p className="text-sm font-medium">
+                {eventIds.length} {eventIds.length === 1 ? "event" : "events"} selected
+              </p>
             ) : (
-              venue && (
-                <p className="rounded-control bg-neutral px-4 py-3 text-sm">
-                  No events announced at {venue.name} in the next 60 days. We&apos;ll save this as a draft so you can publish
-                  it in one tap when events are added.
+              <div className="space-y-2 rounded-control bg-neutral px-4 py-3">
+                <p className="text-sm">
+                  {withEvents.length === 0
+                    ? "No events announced near you in the next 60 days. Save a draft and publish it in one tap when events are added."
+                    : "No events picked. You can save a draft for a venue and publish it later."}
                 </p>
-              )
-            )}
-            {venue && venue.events.length > 0 && eventIds.length === 0 && (
-              <p className="text-sm text-muted">No events picked: this will be saved as a draft.</p>
+                <Select label="Save a draft for" name="draftVenueId" defaultValue={place.venues[0]?.id}>
+                  {place.venues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} ({formatMiles(v.distanceMeters)})
+                    </option>
+                  ))}
+                </Select>
+              </div>
             )}
           </Step>
 
@@ -255,7 +270,7 @@ export function ListingForm({ payoutsEnabled }: { payoutsEnabled: boolean }) {
           </Step>
 
           <div className="space-y-2">
-            <Button type="submit" size="lg" fullWidth disabled={saving || !venueId}>
+            <Button type="submit" size="lg" fullWidth disabled={saving}>
               {saving
                 ? "Saving…"
                 : eventIds.length === 0
