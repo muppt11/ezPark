@@ -87,8 +87,9 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
     else fieldErrors.hourlyRate = r.error.issues[0].message;
   }
 
+  // Photo is optional; when given it's shown to drivers after they book.
   const photo = formData.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) fieldErrors.photo = "Add a photo of your driveway. Drivers trust listings with photos.";
+  const hasPhoto = photo instanceof File && photo.size > 0;
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
   // Re-geocode on the server rather than trusting coordinates from the browser.
@@ -107,8 +108,12 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
     events.length === 0 && d.draftVenueId ? await db.venue.findUnique({ where: { id: d.draftVenueId } }) : null;
   if (events.length === 0 && !draftVenue) return { fieldErrors: { eventIds: "Pick at least one event, or a venue for your draft." } };
 
-  const saved = await savePhoto(photo as File);
-  if ("error" in saved) return { fieldErrors: { photo: saved.error } };
+  let photoUrl: string | null = null;
+  if (hasPhoto) {
+    const saved = await savePhoto(photo);
+    if ("error" in saved) return { fieldErrors: { photo: saved.error } };
+    photoUrl = saved.url;
+  }
 
   // One fuzzed point for the driveway, shared by all its listings: separate random points
   // per listing could be averaged to find the house.
@@ -127,7 +132,7 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
     return {
       hostId: user.id,
       venueId,
-      photoUrl: saved.url,
+      photoUrl,
       carCount: d.carCount,
       pricingMode: d.pricingMode,
       flatPrice,

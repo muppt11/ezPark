@@ -180,7 +180,9 @@ export function ListingForm({ payoutsEnabled }: { payoutsEnabled: boolean }) {
           {/* 3. Details */}
           <Step n={3} title="Your driveway">
             <div>
-              <p className="mb-1.5 text-sm font-medium">Photo</p>
+              <p className="mb-1.5 text-sm font-medium">
+                Photo <span className="font-normal text-muted">(optional)</span>
+              </p>
               <label className="flex cursor-pointer items-center gap-4 rounded-card border-2 border-dashed border-border-strong bg-surface p-3 hover:border-primary">
                 {photo ? (
                   // eslint-disable-next-line @next/next/no-img-element -- local preview blob
@@ -192,7 +194,7 @@ export function ListingForm({ payoutsEnabled }: { payoutsEnabled: boolean }) {
                 )}
                 <span>
                   <span className="block font-semibold text-primary">{photo ? "Change photo" : "Add a photo"}</span>
-                  <span className="text-sm text-muted">Show the open space from the street.</span>
+                  <span className="text-sm text-muted">Helps drivers spot your driveway. Only shown after they book.</span>
                 </span>
                 <input type="file" accept="image/*" className="sr-only" onChange={(e) => pickPhoto(e.target.files?.[0])} />
               </label>
