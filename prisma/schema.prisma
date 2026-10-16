@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  DRIVER
+  HOST
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  /// Roles the user has opted into. One account can hold both.
+  isDriver     Boolean  @default(false)
+  isHost       Boolean  @default(false)
+  /// Last role used in the app; restored on next visit by the role switcher.
+  lastRole     Role     @default(DRIVER)
+  /// "light" | "dark" | "system"; mirrors the theme cookie so it follows the account.
+  themePref    String   @default("system")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Driver preferences (account settings)
+  /// Free-text area, e.g. "Hyde Park, Austin". Used to rank "Upcoming near you".
+  homeArea       String?
+  homeLat        Float?
+  homeLng        Float?
+  /// Longest walk the driver wants to see first in search, in minutes.
+  maxWalkMinutes Int     @default(15)
+  vehicleMake    String?
+  vehicleModel   String?
+  vehicleColor   String?
+  /// Shared with the host only after payment, so they can recognize the car.
+  licensePlate   String?
+
+  /// Stripe Customer for saved cards (Driver payments).
+  stripeCustomerId String? @unique
+
+  termsAcceptances    TermsAcceptance[]
+  passwordResetTokens PasswordResetToken[]
+  listings            Listing[]
+}
+
+enum EventType {
+  CONCERT
+  SPORTS
+  OTHER
+}
+
+enum PricingMode {
+  HOURLY
+  FLAT
+  BOTH
+}
+
+enum ListingStatus {
+  /// Saved for a venue before its events are announced, or not finished yet.
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+model Venue {
+  id         String  @id @default(cuid())
+  name       String
+  address    String
+  city       String
+  lat        Float
+  lng        Float
+  /// "seed" for hand-entered rows, "ticketmaster" for synced rows.
+  source     String  @default("seed")
+  externalId String?
+
+  events   Event[]
+  listings Listing[]
+
+  @@unique([source, externalId])
+}
+
+model Event {
+  id         String    @id @default(cuid())
+  venueId    String
+  venue      Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  name       String
+  type       EventType @default(OTHER)
+  startsAt   DateTime
+  source     String    @default("seed")
+  externalId String?
+
+  listings Listing[]
+
+  @@unique([source, externalId])
+  @@index([startsAt])
+}
+
+/// A driveway offered for one event. Drafts may have no event yet (venue only).
+model Listing {
+  id      String        @id @default(cuid())
+  hostId  String
+  host    User          @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  venueId String
+  venue   Venue         @relation(fields: [venueId], references: [id])
+  eventId String?
+  event   Event?        @relation(fields: [eventId], references: [id])
+  status  ListingStatus @default(DRAFT)
+
+  photoUrl     String?
+  carCount     Int         @default(1)
+  pricingMode  PricingMode @default(FLAT)
+  /// Prices in cents.
+  hourlyRate   Int?
+  flatPrice    Int?
+  openFrom     DateTime
+  openUntil    DateTime
+
+  /// Exact address, coordinates and instructions: revealed to a driver only after payment.
+  address      String
+  instructions String?
+  lat          Float
+  lng          Float
+  /// Fixed fuzzed point (~150 m) shown before payment. Stored once so it can't be averaged out.
+  approxLat    Float
+  approxLng    Float
+  /// Short public label, e.g. "Near E 23rd St & San Jacinto".
+  areaLabel    String
+
+  walkMeters   Int
+  walkMinutes  Int
+  /// "osrm" when routed on foot paths, "estimate" for straight line x 1.3.
+  walkSource   String
+
+  /// Demo data from the dev seed. Never shown in production.
+  isDemo       Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([eventId, status])
+}
+
+/// One row per acceptance. A new terms version requires a new row.
+model TermsAcceptance {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version    String
+  acceptedAt DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([userId, version])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the token; the raw token only exists in the emailed link.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}

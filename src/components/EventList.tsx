@@ -1,0 +1,39 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { formatEventDate, formatTime } from "@/lib/format";
+import type { UpcomingEvent } from "@/lib/search";
+
+/** Upcoming events as tappable rows: date block, name, venue, driveway count. */
+export function EventList({ events }: { events: UpcomingEvent[] }) {
+  if (events.length === 0) return <p className="text-muted">No upcoming events in the next 60 days.</p>;
+
+  return (
+    <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
+      {events.map((e) => {
+        const [weekday, month, day] = formatEventDate(e.startsAt).replace(",", "").split(" ");
+        return (
+          <li key={e.id}>
+            <Link href={`/find?event=${e.id}`} className="flex items-center gap-4 px-4 py-3.5 hover:bg-bg">
+              <div className="w-14 shrink-0 text-center">
+                <p className="text-xs font-semibold uppercase text-accent">{month}</p>
+                <p className="text-2xl leading-none font-bold">{day}</p>
+                <p className="text-xs text-muted">{weekday}</p>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{e.name}</p>
+                <p className="truncate text-sm text-muted">
+                  {e.venue.name} · {formatTime(e.startsAt)}
+                </p>
+              </div>
+              <p className="shrink-0 text-right text-sm">
+                <span className="font-semibold">{e.driveways}</span>{" "}
+                <span className="text-muted">{e.driveways === 1 ? "driveway" : "driveways"}</span>
+              </p>
+              <ChevronRight size={18} className="shrink-0 text-muted" />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { CalendarDays, Footprints, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -8,7 +9,9 @@ const tokens = [
   "primary", "primary-text", "accent", "accent-text", "accent-subtle", "danger", "success",
 ];
 
+// Developer reference only: 404s in production so visitors never see it.
 export default function StyleguidePage() {
+  if (process.env.NODE_ENV === "production") notFound();
   return (
     <div className="mx-auto max-w-6xl space-y-12 px-4 py-10">
       <header>

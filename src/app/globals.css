@@ -65,6 +65,8 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
   --shadow-card: var(--shadow);
+  /* Neutral gray track/placeholder, mixed from existing tokens (like the inspo segmented control). */
+  --color-neutral: color-mix(in oklab, var(--muted) 14%, var(--surface));
   --radius-card: 0.75rem;
   --radius-control: 0.5rem;
   --font-sans: var(--font-jakarta);
@@ -73,6 +75,48 @@
 body {
   background: var(--bg);
   color: var(--text);
+}
+
+/* Map price pins (DOM markers, so they follow the theme tokens). */
+.ez-pin {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: 700 14px/1.2 var(--font-jakarta), system-ui, sans-serif;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 120ms ease;
+}
+.ez-pin:hover,
+.ez-pin[data-active="true"] {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+  transform: scale(1.08);
+}
+.ez-venue-pin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 999px;
+  padding: 5px 10px 5px 6px;
+  font: 700 13px/1.2 var(--font-jakarta), system-ui, sans-serif;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+.maplibregl-ctrl-group {
+  background: var(--surface) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--border) !important;
+}
+[data-theme="dark"] .maplibregl-ctrl-icon {
+  filter: invert(1);
 }
 
 :focus-visible {

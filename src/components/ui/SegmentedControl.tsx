@@ -34,13 +34,13 @@ export function SegmentedControl<T extends string>({
   const selected =
     tone === "accent"
       ? "bg-accent text-accent-text shadow-card"
-      : "bg-surface text-text shadow-card";
+      : "bg-surface text-text shadow-card dark:bg-bg dark:ring-1 dark:ring-border-strong";
 
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={`inline-flex rounded-control bg-surface-subtle p-1 ${className}`}
+      className={`inline-flex rounded-control bg-neutral p-1 ${className}`}
     >
       {options.map((opt) => {
         const isOn = opt.value === value;
