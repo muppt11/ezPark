@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleUserRound, House, Menu, Search, X } from "lucide-react";
+import { CircleUserRound, House, Menu, Search, Ticket, X } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { NavUser } from "./types";
@@ -58,8 +58,8 @@ export function BottomNav({ user }: { user: NavUser }) {
       )}
 
       <nav
-        aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        aria-label="Tabs"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <Tab
           href="/find"
@@ -67,6 +67,7 @@ export function BottomNav({ user }: { user: NavUser }) {
           icon={<Search size={22} />}
           label="Find parking"
         />
+        <Tab href="/parking" active={pathname.startsWith("/parking") || pathname.startsWith("/book")} icon={<Ticket size={22} />} label="My parking" />
         <Tab href="/host" active={pathname.startsWith("/host")} icon={<House size={22} />} label="Rent out" />
         <Tab
           href={accountHref}
@@ -77,7 +78,7 @@ export function BottomNav({ user }: { user: NavUser }) {
         <button
           type="button"
           onClick={() => setMoreOpen(true)}
-          className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium uppercase tracking-wide ${moreOpen ? "text-primary" : "text-muted"}`}
+          className={`flex flex-col items-center gap-1 py-2 text-[10px] font-medium uppercase tracking-wide ${moreOpen ? "text-primary" : "text-muted"}`}
         >
           <Menu size={22} />
           More
@@ -92,7 +93,7 @@ function Tab({ href, active, icon, label }: { href: string; active: boolean; ico
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium uppercase tracking-wide ${active ? "text-primary" : "text-muted"}`}
+      className={`flex flex-col items-center gap-1 py-2 text-[10px] font-medium uppercase tracking-wide ${active ? "text-primary" : "text-muted"}`}
     >
       {icon}
       {label}

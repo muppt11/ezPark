@@ -16,6 +16,9 @@ setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
 export type MapPin = { id: string; lat: number; lng: number; label: string };
 
+/** Pins closer than this (screen px) merge into a count bubble. */
+const CLUSTER_PX = 56;
+
 type Props = {
   venue: { name: string; lat: number; lng: number };
   pins: MapPin[];
@@ -69,11 +72,11 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
     map.current?.setStyle(STYLES[theme]);
   }, [theme]);
 
-  // Price pins.
+  // Price pins, grouped into count bubbles where they'd overlap at the current zoom.
   useEffect(() => {
     const m = map.current;
     if (!m) return;
-    const created: Marker[] = [];
+    const pinMarkers: { pin: MapPin; marker: Marker; el: HTMLElement }[] = [];
     for (const p of pins) {
       const el = document.createElement("button");
       el.type = "button";
@@ -87,8 +90,41 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
         e.stopPropagation();
         handlers.current.onSelect?.(p.id);
       });
-      created.push(new Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(m));
+      pinMarkers.push({ pin: p, marker: new Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(m), el });
     }
+
+    let clusterMarkers: Marker[] = [];
+    const recluster = () => {
+      clusterMarkers.forEach((c) => c.remove());
+      clusterMarkers = [];
+      const groups: (typeof pinMarkers)[] = [];
+      for (const pm of pinMarkers) {
+        const pt = m.project([pm.pin.lng, pm.pin.lat]);
+        const near = groups.find((g) => {
+          const q = m.project([g[0].pin.lng, g[0].pin.lat]);
+          return Math.abs(q.x - pt.x) < CLUSTER_PX && Math.abs(q.y - pt.y) < CLUSTER_PX / 2;
+        });
+        if (near) near.push(pm);
+        else groups.push([pm]);
+      }
+      for (const g of groups) {
+        const solo = g.length === 1;
+        g.forEach((pm) => (pm.el.style.display = solo ? "" : "none"));
+        if (solo) continue;
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "ez-cluster";
+        el.textContent = String(g.length);
+        el.setAttribute("aria-label", `${g.length} driveways here, zoom in`);
+        const b = new LngLatBounds([g[0].pin.lng, g[0].pin.lat], [g[0].pin.lng, g[0].pin.lat]);
+        g.forEach((pm) => b.extend([pm.pin.lng, pm.pin.lat]));
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          m.fitBounds(b, { padding: 80, maxZoom: 18 });
+        });
+        clusterMarkers.push(new Marker({ element: el }).setLngLat(b.getCenter()).addTo(m));
+      }
+    };
 
     const bounds = new LngLatBounds([venue.lng, venue.lat], [venue.lng, venue.lat]);
     pins.forEach((p) => bounds.extend([p.lng, p.lat]));
@@ -96,6 +132,7 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
     const fit = () => {
       const { width, height } = m.getContainer().getBoundingClientRect();
       if (width > 0 && height > 0) m.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 0 });
+      recluster();
     };
     fit();
 
@@ -106,6 +143,7 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
       if (e.originalEvent) userMoved = true;
     };
     m.on("movestart", onMove);
+    m.on("zoomend", recluster);
     const ro = new ResizeObserver(() => {
       m.resize();
       if (!userMoved) fit();
@@ -115,7 +153,9 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
     return () => {
       ro.disconnect();
       m.off("movestart", onMove);
-      created.forEach((mk) => mk.remove());
+      m.off("zoomend", recluster);
+      clusterMarkers.forEach((c) => c.remove());
+      pinMarkers.forEach((pm) => pm.marker.remove());
     };
   }, [pins, venue.lat, venue.lng, approxCircle]);
 

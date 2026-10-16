@@ -12,7 +12,9 @@
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "sync:events": "tsx scripts/sync-events.ts",
+    "test:e2e": "node tests/e2e/core-flow.mjs"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.1",
@@ -38,6 +40,7 @@
     "dotenv": "^18.0.8",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "playwright-core": "^1.56.1",
     "prisma": "^7.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

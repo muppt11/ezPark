@@ -23,6 +23,11 @@ export function DesktopNav({ user }: { user: NavUser }) {
       <Link href="/find" className={linkClass}>
         Find parking
       </Link>
+      {user && (
+        <Link href="/parking" className={linkClass}>
+          My parking
+        </Link>
+      )}
       <Link href="/host" className={linkClass}>
         Rent out your driveway
       </Link>
@@ -50,6 +55,12 @@ export function DesktopNav({ user }: { user: NavUser }) {
               <>
                 <Link role="menuitem" href="/account" className={itemClass}>
                   Account
+                </Link>
+                <Link role="menuitem" href="/parking" className={itemClass}>
+                  My parking
+                </Link>
+                <Link role="menuitem" href="/host" className={itemClass}>
+                  Hosting
                 </Link>
                 <form action={logout}>
                   <button role="menuitem" type="submit" className={itemClass}>

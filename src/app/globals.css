@@ -97,6 +97,17 @@ body {
   border-color: var(--primary);
   transform: scale(1.08);
 }
+.ez-cluster {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 3px solid var(--surface);
+  background: var(--primary);
+  color: var(--primary-text);
+  font: 800 14px/1 var(--font-jakarta), system-ui, sans-serif;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
 .ez-venue-pin {
   display: flex;
   align-items: center;

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { EventList } from "@/components/EventList";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/current-user";
 import { eventsAtVenue, getEventWithVenue, listingsForEvent, upcomingEvents, type SortKey } from "@/lib/search";
 import { FindView } from "./FindView";
 
@@ -30,7 +32,15 @@ async function Results({ searchParams }: Pick<PageProps<"/find">, "searchParams"
     if (!event) return <NoMatch q={q} />;
   }
 
-  const [listings, others] = await Promise.all([listingsForEvent(event.id, sort), eventsAtVenue(event.venueId)]);
+  // Walk filter: ?walk= wins; otherwise the signed-in driver's saved preference; "any" shows everything.
+  const user = await getCurrentUser();
+  const pref = user ? (await db.user.findUnique({ where: { id: user.id }, select: { maxWalkMinutes: true } }))?.maxWalkMinutes : undefined;
+  const walk = sp.walk === "any" ? undefined : Number(sp.walk) || pref || undefined;
+
+  const [{ listings, hiddenByWalk }, others] = await Promise.all([
+    listingsForEvent(event.id, sort, walk),
+    eventsAtVenue(event.venueId),
+  ]);
 
   return (
     <FindView
@@ -38,6 +48,8 @@ async function Results({ searchParams }: Pick<PageProps<"/find">, "searchParams"
       venue={{ name: event.venue.name, lat: event.venue.lat, lng: event.venue.lng }}
       otherEvents={others.map((e) => ({ ...e, startsAt: e.startsAt.toISOString() }))}
       listings={listings}
+      hiddenByWalk={hiddenByWalk}
+      walk={walk ?? null}
       sort={sort}
     />
   );

@@ -9,6 +9,7 @@ import { signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { getCurrentUser } from "@/lib/current-user";
+import { allow, clientIp } from "@/lib/rate-limit";
 import { TERMS_VERSION } from "@/lib/terms";
 import { THEME_COOKIE, type ThemePref } from "@/lib/theme";
 import { loginSchema, resetPasswordSchema, ROLES_REQUIRED, signupSchema } from "@/lib/validation";
@@ -21,6 +22,8 @@ export type FormState = {
 };
 
 const RESET_TTL_MS = 60 * 60 * 1000;
+const MIN = 60_000;
+const TOO_MANY = "Too many attempts. Please wait a few minutes and try again.";
 
 /** Only allow same-site relative redirects. */
 function safeNext(raw: FormDataEntryValue | null, fallback: string) {
@@ -55,6 +58,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
     acceptTerms: formData.get("acceptTerms") === "on",
   };
   const values = { name: input.name, email: input.email, wantsDriver: input.wantsDriver, wantsHost: input.wantsHost };
+  if (!allow(`signup:${await clientIp()}`, 50, 60 * MIN)) return { error: TOO_MANY, values };
 
   const parsed = signupSchema.safeParse(input);
   const fieldErrors = parsed.success ? {} : firstErrors(parsed.error.issues);
@@ -92,6 +96,10 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
   const email = String(formData.get("email") ?? "");
   const parsed = loginSchema.safeParse({ email, password: formData.get("password") ?? "" });
   if (!parsed.success) return { fieldErrors: firstErrors(parsed.error.issues), values: { email } };
+  const ip = await clientIp();
+  if (!allow(`login:${ip}`, 100, 15 * MIN) || !allow(`login:${parsed.data.email}`, 8, 15 * MIN)) {
+    return { error: TOO_MANY, values: { email } };
+  }
 
   try {
     await signIn("credentials", { ...parsed.data, redirect: false });
@@ -113,6 +121,10 @@ export async function logout() {
 
 export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!allow(`reset:${await clientIp()}`, 10, 15 * MIN) || !allow(`reset:${email}`, 3, 15 * MIN)) {
+    // Same response as success, so this can't be used to probe accounts either.
+    return { done: true };
+  }
   const user = email ? await db.user.findUnique({ where: { email } }) : null;
 
   if (user) {

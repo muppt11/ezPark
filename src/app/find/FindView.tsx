@@ -13,11 +13,13 @@ type Props = {
   venue: { name: string; lat: number; lng: number };
   otherEvents: { id: string; name: string; startsAt: string }[];
   listings: PublicListing[];
+  hiddenByWalk: number;
+  walk: number | null;
   sort: SortKey;
 };
 
 /** Zillow/Airbnb-style results: list on the left, map on the right; list/map toggle on phones. */
-export function FindView({ event, venue, otherEvents, listings, sort }: Props) {
+export function FindView({ event, venue, otherEvents, listings, hiddenByWalk, walk, sort }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -50,8 +52,8 @@ export function FindView({ event, venue, otherEvents, listings, sort }: Props) {
     <div className="flex h-[calc(100dvh-9rem)] flex-col md:h-[calc(100dvh-4rem)]">
       {/* Search bar, as in the ui_inspo results header */}
       <div className="border-b border-border bg-surface px-4 py-3">
-        <div className="mx-auto flex max-w-[100rem] flex-col gap-2 md:flex-row md:items-center">
-          <form action="/find" className="flex h-12 flex-1 items-center gap-2 rounded-control border border-border-strong bg-surface px-3 md:max-w-sm">
+        <div className="mx-auto flex max-w-[100rem] flex-col gap-2 lg:flex-row lg:items-center">
+          <form action="/find" className="flex h-12 shrink-0 items-center md:flex-1 gap-2 rounded-control border border-border-strong bg-surface px-3 md:max-w-sm">
             <Search size={18} className="shrink-0 text-muted" />
             <input
               name="q"
@@ -61,8 +63,8 @@ export function FindView({ event, venue, otherEvents, listings, sort }: Props) {
               onFocus={(e) => e.currentTarget.select()}
             />
           </form>
-          <div className="flex gap-2">
-            <label className="flex h-12 min-w-0 flex-1 flex-col justify-center rounded-control border border-border-strong px-3 md:w-80 md:flex-none">
+          <div className="flex flex-wrap gap-2 md:flex-nowrap">
+            <label className="flex h-12 min-w-0 basis-full flex-col justify-center rounded-control border border-border-strong px-3 md:w-80 md:basis-auto">
               <span className="text-xs text-muted">Event</span>
               <select
                 value={event.id}
@@ -76,7 +78,22 @@ export function FindView({ event, venue, otherEvents, listings, sort }: Props) {
                 ))}
               </select>
             </label>
-            <label className="flex h-12 w-36 shrink-0 flex-col justify-center rounded-control border border-border-strong px-3">
+            <label className="flex h-12 flex-1 flex-col justify-center rounded-control border border-border-strong px-3 md:w-28 md:flex-none">
+              <span className="text-xs text-muted">Walk</span>
+              <select
+                value={walk ? String(walk) : "any"}
+                onChange={(e) => go({ walk: e.target.value })}
+                className="-ml-1 bg-transparent font-medium outline-none"
+              >
+                <option value="any">Any</option>
+                {[5, 10, 15, 20, 30].map((m) => (
+                  <option key={m} value={m}>
+                    ≤ {m} min
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex h-12 flex-1 flex-col justify-center rounded-control border border-border-strong px-3 md:w-36 md:flex-none">
               <span className="text-xs text-muted">Sort by</span>
               <select
                 value={sort}
@@ -84,7 +101,7 @@ export function FindView({ event, venue, otherEvents, listings, sort }: Props) {
                 className="-ml-1 bg-transparent font-medium outline-none"
               >
                 <option value="walk">Shortest walk</option>
-                <option value="price">Lowest price</option>
+                <option value="price">Lowest total</option>
               </select>
             </label>
           </div>
@@ -104,6 +121,14 @@ export function FindView({ event, venue, otherEvents, listings, sort }: Props) {
           </p>
           <p className="mt-1 text-sm text-muted">Map pins show approximate locations. You get the exact address after you pay.</p>
 
+          {hiddenByWalk > 0 && (
+            <p className="mt-2 text-sm">
+              {hiddenByWalk} more {hiddenByWalk === 1 ? "driveway is" : "driveways are"} a longer walk.{" "}
+              <button type="button" onClick={() => go({ walk: "any" })} className="font-semibold text-primary underline">
+                Show all
+              </button>
+            </p>
+          )}
           {listings.length === 0 ? (
             <div className="mt-6 rounded-card border border-border bg-surface p-5">
               <p className="font-semibold">No driveways listed for this event yet.</p>

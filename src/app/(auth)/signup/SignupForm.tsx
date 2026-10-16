@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Car, House } from "lucide-react";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { ChoiceCard } from "@/components/ui/ChoiceCard";
@@ -22,6 +23,7 @@ export function SignupForm() {
   return (
     <form action={action} className="mt-8 space-y-8" noValidate>
       <input type="hidden" name="next" value={next} />
+      {state.error && <Alert tone="error">{state.error}</Alert>}
       <fieldset aria-describedby={err.roles ? "roles-error" : "roles-hint"}>
         <legend className="text-lg font-semibold">What do you want to use ezPark for?</legend>
         <p id="roles-hint" className="mt-1 text-sm text-muted">

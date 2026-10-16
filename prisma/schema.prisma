@@ -43,9 +43,16 @@ model User {
   /// Stripe Customer for saved cards (Driver payments).
   stripeCustomerId String? @unique
 
+  // Host payouts. In test mode this is a simulated account; later a Stripe Connect Express account.
+  payoutsEnabled   Boolean @default(false)
+  payoutAccountRef String?
+  payoutLabel      String?
+
   termsAcceptances    TermsAcceptance[]
   passwordResetTokens PasswordResetToken[]
   listings            Listing[]
+  bookings            Booking[]
+  incidents           Incident[]
 }
 
 enum EventType {
@@ -70,6 +77,8 @@ enum ListingStatus {
 model Venue {
   id         String  @id @default(cuid())
   name       String
+  /// Nicknames people search for, comma-separated (e.g. "DKR, UT stadium").
+  aliases    String  @default("")
   address    String
   city       String
   lat        Float
@@ -119,6 +128,9 @@ model Listing {
   flatPrice    Int?
   openFrom     DateTime
   openUntil    DateTime
+  /// Open window relative to event start, so a draft can be applied to events announced later.
+  opensHoursBefore Int @default(3)
+  closesHoursAfter Int @default(3)
 
   /// Exact address, coordinates and instructions: revealed to a driver only after payment.
   address      String
@@ -141,7 +153,74 @@ model Listing {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  bookings Booking[]
+
   @@index([eventId, status])
+}
+
+enum PricingOption {
+  HOURLY
+  FLAT
+}
+
+enum BookingStatus {
+  CONFIRMED
+  /// Cancelled by the driver (refund depends on timing).
+  CANCELED
+  /// Refunded because the host cancelled or the spot was unusable.
+  REFUNDED
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  listingId     String
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  driverId      String
+  driver        User          @relation(fields: [driverId], references: [id])
+  status        BookingStatus @default(CONFIRMED)
+  pricingOption PricingOption
+  startsAt      DateTime
+  endsAt        DateTime
+
+  /// All money in cents. Driver pays `total`; host gets `hostPayout` = total - platformFee (10%).
+  total         Int
+  platformFee   Int
+  hostPayout    Int
+  refundAmount  Int           @default(0)
+
+  /// "test" for simulated payments, "stripe" once live.
+  paymentMode   String
+  paymentRef    String
+  cardLabel     String
+  paidAt        DateTime      @default(now())
+  canceledAt    DateTime?
+
+  createdAt     DateTime      @default(now())
+  incidents     Incident[]
+
+  @@index([listingId, status])
+  @@index([driverId])
+}
+
+enum IncidentType {
+  SPOT_BLOCKED
+  CANT_FIND
+  HOST_CANCELED
+  OTHER
+}
+
+/// "Report a problem" from a driver's reservation page.
+model Incident {
+  id         String       @id @default(cuid())
+  bookingId  String
+  booking    Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User         @relation(fields: [reporterId], references: [id])
+  type       IncidentType
+  notes      String?
+  /// OPEN until an admin reviews it.
+  status     String       @default("OPEN")
+  createdAt  DateTime     @default(now())
 }
 
 /// One row per acceptance. A new terms version requires a new row.

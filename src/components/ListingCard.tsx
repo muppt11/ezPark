@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Car, Footprints } from "lucide-react";
 import { formatMiles } from "@/lib/geo";
-import { formatTimeRange, priceLabel } from "@/lib/format";
+import { formatCents, formatTimeRange, priceLabel } from "@/lib/format";
+import { estimatedTotal, offersFlat, TYPICAL_HOURS } from "@/lib/pricing";
 import type { PublicListing } from "@/lib/search";
 
 type Props = {
@@ -26,19 +27,19 @@ export function ListingCard({ listing: l, active, onHover }: Props) {
       }`}
     >
       <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-control bg-neutral text-muted">
-        {l.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- host uploads, arbitrary sizes
-          <img src={l.photoUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <Car size={28} strokeWidth={1.5} />
-        )}
+        <span className="flex flex-col items-center gap-1 px-1 text-center">
+          <Car size={26} strokeWidth={1.5} />
+          {l.hasPhoto && <span className="text-[10px] leading-tight">Photo after booking</span>}
+        </span>
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
           <p className="truncate font-semibold">{l.areaLabel}</p>
           <p className="shrink-0 text-right">
             <span className="text-lg font-bold">{price.amount}</span>
-            <span className="block text-xs text-muted">{price.unit}</span>
+            <span className="block text-xs text-muted">
+              {offersFlat(l) ? price.unit : `≈ ${formatCents(estimatedTotal(l))} for ${TYPICAL_HOURS} hrs`}
+            </span>
           </p>
         </div>
         <p className="flex items-center gap-1.5 text-[15px]">
@@ -46,7 +47,7 @@ export function ListingCard({ listing: l, active, onHover }: Props) {
           {l.walkMinutes} min walk <span className="text-muted">({formatMiles(l.walkMeters)})</span>
         </p>
         <p className="mt-auto pt-1 text-sm text-muted">
-          {spots} · Open {formatTimeRange(new Date(l.openFrom), new Date(l.openUntil))}
+          {l.spotsLeft < l.carCount ? `${l.spotsLeft} of ${spots} left` : spots} · Open {formatTimeRange(new Date(l.openFrom), new Date(l.openUntil))}
           {l.pricingMode === "BOTH" && " · Hourly or flat"}
         </p>
       </div>

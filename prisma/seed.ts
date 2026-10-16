@@ -21,6 +21,7 @@ const VENUES = [
   {
     key: "dkr",
     name: "Darrell K Royal–Texas Memorial Stadium",
+    aliases: "DKR, Royal-Memorial, UT stadium, Longhorns stadium",
     address: "2139 San Jacinto Blvd, Austin, TX 78712",
     lat: 30.2838412,
     lng: -97.7326229,
@@ -28,6 +29,7 @@ const VENUES = [
   {
     key: "moody",
     name: "Moody Center",
+    aliases: "Moody, UT arena",
     address: "2001 Robert Dedman Dr, Austin, TX 78712",
     lat: 30.2809367,
     lng: -97.7306522,
@@ -35,6 +37,7 @@ const VENUES = [
   {
     key: "q2",
     name: "Q2 Stadium",
+    aliases: "Q2, Austin FC stadium, McKalla",
     address: "10414 McKalla Pl, Austin, TX 78758",
     lat: 30.3853074,
     lng: -97.719227,
@@ -115,8 +118,8 @@ async function seedVenuesAndEvents() {
   for (const v of VENUES) {
     const row = await db.venue.upsert({
       where: { source_externalId: { source: "seed", externalId: v.key } },
-      update: { name: v.name, address: v.address, lat: v.lat, lng: v.lng },
-      create: { source: "seed", externalId: v.key, name: v.name, address: v.address, city: "Austin, TX", lat: v.lat, lng: v.lng },
+      update: { name: v.name, aliases: v.aliases, address: v.address, lat: v.lat, lng: v.lng },
+      create: { source: "seed", externalId: v.key, name: v.name, aliases: v.aliases, address: v.address, city: "Austin, TX", lat: v.lat, lng: v.lng },
     });
     venueIds[v.key] = row.id;
   }
@@ -136,20 +139,43 @@ async function seedVenuesAndEvents() {
 }
 
 async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id: string; venue: VenueKey; startsAt: Date; type: EventType }[]) {
+  // Bookings reference listings, so clear demo bookings first.
+  await db.booking.deleteMany({ where: { listing: { isDemo: true } } });
   await db.listing.deleteMany({ where: { isDemo: true } });
 
-  const host = await db.user.upsert({
-    where: { email: "demo-host@ezpark.local" },
-    update: {},
-    create: {
-      email: "demo-host@ezpark.local",
-      name: "Demo Host",
-      // Random password nobody knows: the demo host can't be logged into.
-      passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 10),
-      isHost: true,
-      lastRole: "HOST",
-    },
-  });
+  // Demo hosts have random passwords nobody knows, so they can't be logged into.
+  const hostNames = ["Maria Gonzalez", "James Porter", "Linda Kim", "Devon Ross"];
+  const hosts = [];
+  for (const [i, name] of hostNames.entries()) {
+    const email = `demo-host-${i + 1}@ezpark.local`;
+    hosts.push(
+      await db.user.upsert({
+        where: { email },
+        update: { name, payoutsEnabled: true },
+        create: {
+          email,
+          name,
+          passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 10),
+          isHost: true,
+          lastRole: "HOST",
+          payoutsEnabled: true,
+          payoutAccountRef: `test_acct_demo${i + 1}`,
+          payoutLabel: `${name} · bank •••• 6789`,
+          createdAt: new Date(Date.UTC(2025, 2 + i * 2, 10)),
+        },
+      }),
+    );
+  }
+  // Earlier seeds used a single demo host; retire it.
+  await db.user.deleteMany({ where: { email: "demo-host@ezpark.local", listings: { none: {} } } });
+
+  const photos = ["/demo/driveway-gravel.jpg", "/demo/driveway-stone.jpg"];
+  const instructions = [
+    "Pull all the way up the left side of the driveway. Please don't block the garage.",
+    "Park nose-in behind the silver SUV. Gate code is on the confirmation text from the host.",
+    "Use the right half of the driveway. Street parking in front is not included.",
+    "Back in so you can leave quickly after the game. Text the host when you arrive.",
+  ];
 
   const rand = mulberry32(2026);
   // Campus-area spots serve both DKR and Moody Center; a smaller cluster serves Q2.
@@ -165,6 +191,10 @@ async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id
       const spot = pointNear(c, 350, 1400, rand);
       const approx = fuzzPoint(spot, rand);
       const road = await streetName(spot);
+      const host = hosts[i % hosts.length];
+      const photoUrl = photos[i % photos.length];
+      const note = instructions[i % instructions.length];
+      const address = `${100 + Math.floor(rand() * 3800)} ${road ?? "Demo St"}, Austin, TX (demo address)`;
       const carCount = 1 + Math.floor(rand() * 3);
       const mode: PricingMode = (["FLAT", "FLAT", "HOURLY", "BOTH"] as const)[Math.floor(rand() * 4)];
       const flat = 1500 + Math.round(rand() * 5) * 500; // $15–$40
@@ -180,6 +210,7 @@ async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id
               isDemo: true,
               status: "ACTIVE",
               hostId: host.id,
+              photoUrl,
               venueId: venueIds[vKey],
               eventId: ev.id,
               carCount,
@@ -188,8 +219,8 @@ async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id
               hourlyRate: mode === "FLAT" ? null : hourly,
               openFrom: new Date(ev.startsAt.getTime() - 4 * 3600_000),
               openUntil: new Date(ev.startsAt.getTime() + 4 * 3600_000),
-              address: `${road ?? "Demo street"} (demo listing, not a real driveway)`,
-              instructions: "Demo listing. Pull all the way up the driveway, behind the gate.",
+              address,
+              instructions: note,
               lat: spot.lat,
               lng: spot.lng,
               approxLat: approx.lat,

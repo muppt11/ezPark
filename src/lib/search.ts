@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { db } from "@/lib/db";
 import { distanceMeters, type LatLng } from "@/lib/geo";
 import type { Prisma } from "@/generated/prisma/client";
+import { estimatedTotal } from "@/lib/pricing";
 
 /** Events further out than this aren't shown to drivers yet. */
 export const UPCOMING_DAYS = 60;
@@ -38,7 +39,17 @@ export async function upcomingEvents({ near = AUSTIN, q }: { near?: LatLng; q?: 
   const rows = await db.event.findMany({
     where: {
       startsAt: upcomingWindow(),
-      ...(text ? { OR: [{ name: { contains: text } }, { venue: { name: { contains: text } } }] } : {}),
+      // Every word must match the event or venue name, in any order ("longhorns football", "moody concert").
+      ...(text
+        ? {
+            AND: text
+              .split(/\s+/)
+              .filter(Boolean)
+              .map((w) => ({
+                OR: [{ name: { contains: w } }, { venue: { name: { contains: w } } }, { venue: { aliases: { contains: w } } }],
+              })),
+          }
+        : {}),
     },
     include: {
       venue: { select: { id: true, name: true, lat: true, lng: true } },
@@ -85,7 +96,7 @@ export async function eventsAtVenue(venueId: string) {
 
 export type SortKey = "walk" | "price";
 
-/** What a driver may see before paying: approximate location only, no address or instructions. */
+/** What a driver may see before paying: approximate location only, no address, instructions or photo. */
 export type PublicListing = {
   id: string;
   areaLabel: string;
@@ -94,12 +105,14 @@ export type PublicListing = {
   walkMinutes: number;
   walkMeters: number;
   carCount: number;
+  spotsLeft: number;
   pricingMode: "HOURLY" | "FLAT" | "BOTH";
   flatPrice: number | null;
   hourlyRate: number | null;
   openFrom: string;
   openUntil: string;
-  photoUrl: string | null;
+  /** The photo itself is only shown after payment (it would reveal the house); search just knows one exists. */
+  hasPhoto: boolean;
 };
 
 const publicSelect = {
@@ -116,37 +129,53 @@ const publicSelect = {
   openFrom: true,
   openUntil: true,
   photoUrl: true,
+  _count: { select: { bookings: { where: { status: "CONFIRMED" } } } },
 } satisfies Prisma.ListingSelect;
 
 function toPublic(l: Prisma.ListingGetPayload<{ select: typeof publicSelect }>): PublicListing {
-  return { ...l, openFrom: l.openFrom.toISOString(), openUntil: l.openUntil.toISOString() };
+  const { _count, photoUrl, ...rest } = l;
+  return {
+    ...rest,
+    hasPhoto: photoUrl != null,
+    spotsLeft: Math.max(0, l.carCount - _count.bookings),
+    openFrom: l.openFrom.toISOString(),
+    openUntil: l.openUntil.toISOString(),
+  };
 }
 
-/** Price used for sorting: flat price, or 3 hours at the hourly rate (a typical game). */
-function comparablePrice(l: PublicListing) {
-  return l.flatPrice ?? (l.hourlyRate ?? 0) * 3;
-}
+export type EventListings = { listings: PublicListing[]; hiddenByWalk: number };
 
-export async function listingsForEvent(eventId: string, sort: SortKey = "walk"): Promise<PublicListing[]> {
+/** Driveways with room left for an event. `maxWalk` (minutes) hides longer walks but reports how many. */
+export async function listingsForEvent(eventId: string, sort: SortKey = "walk", maxWalk?: number): Promise<EventListings> {
   const rows = await db.listing.findMany({ where: { eventId, ...visibleListing }, select: publicSelect });
-  const list = rows.map(toPublic);
-  return list.sort((a, b) =>
+  const open = rows.map(toPublic).filter((l) => l.spotsLeft > 0);
+  const listings = maxWalk ? open.filter((l) => l.walkMinutes <= maxWalk) : open;
+  listings.sort((a, b) =>
     sort === "price"
-      ? comparablePrice(a) - comparablePrice(b) || a.walkMinutes - b.walkMinutes
-      : a.walkMinutes - b.walkMinutes || comparablePrice(a) - comparablePrice(b),
+      ? estimatedTotal(a) - estimatedTotal(b) || a.walkMinutes - b.walkMinutes
+      : a.walkMinutes - b.walkMinutes || estimatedTotal(a) - estimatedTotal(b),
   );
+  return { listings, hiddenByWalk: open.length - listings.length };
 }
+
+export type HostSummary = { firstName: string; since: Date; completedBookings: number };
 
 export async function getPublicListing(id: string) {
+  await connection(); // completed-booking count below depends on the current time
   const l = await db.listing.findFirst({
     where: { id, ...visibleListing },
     select: {
       ...publicSelect,
       event: { select: { id: true, name: true, startsAt: true } },
       venue: { select: { name: true, lat: true, lng: true } },
+      host: { select: { id: true, name: true, createdAt: true } },
     },
   });
   if (!l) return null;
-  const { event, venue, ...rest } = l;
-  return { listing: toPublic(rest), event, venue };
+  const { event, venue, host, ...rest } = l;
+  const completedBookings = await db.booking.count({
+    where: { status: "CONFIRMED", endsAt: { lt: new Date() }, listing: { hostId: host.id } },
+  });
+  const summary: HostSummary = { firstName: host.name.split(" ")[0], since: host.createdAt, completedBookings };
+  return { listing: toPublic(rest), event, venue, host: summary };
 }
