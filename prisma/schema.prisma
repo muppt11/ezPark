@@ -102,6 +102,8 @@ model Event {
   startsAt   DateTime
   source     String    @default("seed")
   externalId String?
+  /// Example event from the dev seed (real artists, made-up dates). Never shown in production.
+  isDemo     Boolean   @default(false)
 
   listings Listing[]
 

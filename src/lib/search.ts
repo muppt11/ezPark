@@ -10,6 +10,9 @@ export const UPCOMING_DAYS = 60;
 /** Default ranking origin when we don't know where the driver is. */
 export const AUSTIN: LatLng = { lat: 30.2672, lng: -97.7431 };
 
+/** Demo events (real artists, made-up dates) come from the dev seed and must never reach production users. */
+export const DEMO_EVENTS_HIDDEN = process.env.NODE_ENV === "production" ? { isDemo: false } : {};
+
 /** Demo listings come from the dev seed and must never reach production users. */
 const visibleListing: Prisma.ListingWhereInput = {
   status: "ACTIVE",
@@ -39,6 +42,7 @@ export async function upcomingEvents({ near = AUSTIN, q }: { near?: LatLng; q?: 
   const rows = await db.event.findMany({
     where: {
       startsAt: upcomingWindow(),
+      ...DEMO_EVENTS_HIDDEN,
       // Every word must match the event or venue name, in any order ("longhorns football", "moody concert").
       ...(text
         ? {
@@ -79,7 +83,7 @@ function sameDay(a: Date, b: Date) {
 export async function getEventWithVenue(id: string) {
   await connection();
   return db.event.findFirst({
-    where: { id, startsAt: upcomingWindow() },
+    where: { id, startsAt: upcomingWindow(), ...DEMO_EVENTS_HIDDEN },
     include: { venue: { select: { id: true, name: true, address: true, lat: true, lng: true } } },
   });
 }
@@ -88,7 +92,7 @@ export async function getEventWithVenue(id: string) {
 export async function eventsAtVenue(venueId: string) {
   await connection();
   return db.event.findMany({
-    where: { venueId, startsAt: upcomingWindow() },
+    where: { venueId, startsAt: upcomingWindow(), ...DEMO_EVENTS_HIDDEN },
     select: { id: true, name: true, startsAt: true },
     orderBy: { startsAt: "asc" },
   });

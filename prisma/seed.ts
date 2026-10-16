@@ -42,18 +42,50 @@ const VENUES = [
     lat: 30.3853074,
     lng: -97.719227,
   },
+  {
+    key: "zilker",
+    name: "Zilker Park",
+    aliases: "ACL, Austin City Limits, Zilker",
+    address: "2100 Barton Springs Rd, Austin, TX 78704",
+    lat: 30.2676852,
+    lng: -97.7668919,
+  },
 ] as const;
 type VenueKey = (typeof VENUES)[number]["key"];
 
-// Generic placeholder events, dated relative to today so they stay "upcoming".
-// Replaced by real events once the ticketing sync is configured.
-const EVENTS: { key: string; venue: VenueKey; name: string; type: EventType; week: number; weekday: number; hour: number; minute: number }[] = [
+type SeedEvent = {
+  key: string;
+  venue: VenueKey;
+  name: string;
+  type: EventType;
+  week: number;
+  weekday: number;
+  hour: number;
+  minute: number;
+  /** Extra days after the weekday (multi-day festivals). */
+  plusDays?: number;
+  /** Parking window in hours before / after the start. Default 4 / 4. */
+  open?: [number, number];
+  /** Real artists with made-up dates: dev only, never seeded in production. */
+  demo?: boolean;
+};
+
+// Dated relative to today so they stay "upcoming". Generic games are the no-API-key fallback;
+// named concerts are demo examples only.
+const EVENTS: SeedEvent[] = [
   { key: "dkr-football-1", venue: "dkr", name: "Texas Longhorns home football game", type: "SPORTS", week: 0, weekday: 6, hour: 14, minute: 30 },
   { key: "dkr-football-2", venue: "dkr", name: "Texas Longhorns home football game", type: "SPORTS", week: 2, weekday: 6, hour: 18, minute: 0 },
   { key: "dkr-football-3", venue: "dkr", name: "Texas Longhorns home football game", type: "SPORTS", week: 4, weekday: 6, hour: 11, minute: 0 },
   { key: "moody-concert-1", venue: "moody", name: "Concert at Moody Center", type: "CONCERT", week: 0, weekday: 5, hour: 20, minute: 0 },
   { key: "moody-hoops-1", venue: "moody", name: "Texas Longhorns basketball home game", type: "SPORTS", week: 3, weekday: 2, hour: 19, minute: 0 },
   { key: "q2-soccer-1", venue: "q2", name: "Austin FC home match", type: "SPORTS", week: 1, weekday: 6, hour: 19, minute: 30 },
+
+  // Demo concerts
+  { key: "demo-acl-fri", venue: "zilker", name: "Austin City Limits Music Festival · Friday", type: "CONCERT", week: 1, weekday: 5, hour: 11, minute: 0, open: [2, 12], demo: true },
+  { key: "demo-acl-sat", venue: "zilker", name: "Austin City Limits Music Festival · Saturday", type: "CONCERT", week: 1, weekday: 5, plusDays: 1, hour: 11, minute: 0, open: [2, 12], demo: true },
+  { key: "demo-acl-sun", venue: "zilker", name: "Austin City Limits Music Festival · Sunday", type: "CONCERT", week: 1, weekday: 5, plusDays: 2, hour: 11, minute: 0, open: [2, 12], demo: true },
+  { key: "demo-bryson-tiller", venue: "moody", name: "Bryson Tiller", type: "CONCERT", week: 1, weekday: 4, hour: 20, minute: 0, open: [3, 4], demo: true },
+  { key: "demo-doja-cat", venue: "moody", name: "Doja Cat", type: "CONCERT", week: 3, weekday: 6, hour: 20, minute: 0, open: [3, 4], demo: true },
 ];
 
 /** Minutes Chicago is offset from UTC at a given instant (e.g. -300 in CDT). */
@@ -66,10 +98,10 @@ function tzOffsetMinutes(at: Date): number {
 }
 
 /** Date for a venue-local wall-clock time, `week` weeks out on the given weekday (0 = Sun). */
-function localEventTime(week: number, weekday: number, hour: number, minute: number): Date {
+function localEventTime(week: number, weekday: number, hour: number, minute: number, plusDays = 0): Date {
   const now = new Date();
   const today = new Date(now.toLocaleString("en-US", { timeZone: TZ }));
-  const daysAhead = ((weekday - today.getDay() + 7) % 7 || 7) + week * 7;
+  const daysAhead = ((weekday - today.getDay() + 7) % 7 || 7) + week * 7 + plusDays;
   const y = today.getFullYear(), mo = today.getMonth(), d = today.getDate() + daysAhead;
   const guess = new Date(Date.UTC(y, mo, d, hour, minute));
   return new Date(guess.getTime() - tzOffsetMinutes(guess) * 60_000);
@@ -86,9 +118,9 @@ function mulberry32(seed: number) {
   };
 }
 
-function pointNear(c: LatLng, minM: number, maxM: number, rand: () => number): LatLng {
+function pointNear(c: LatLng, minM: number, maxM: number, rand: () => number, bearings: [number, number] = [0, 360]): LatLng {
   const dist = minM + rand() * (maxM - minM);
-  const bearing = rand() * 2 * Math.PI;
+  const bearing = ((bearings[0] + rand() * (bearings[1] - bearings[0])) * Math.PI) / 180;
   return {
     lat: c.lat + (dist * Math.cos(bearing)) / 111_320,
     lng: c.lng + (dist * Math.sin(bearing)) / (111_320 * Math.cos((c.lat * Math.PI) / 180)),
@@ -113,6 +145,8 @@ async function streetName(p: LatLng): Promise<string | null> {
   }
 }
 
+type SeededEvent = { id: string; venue: VenueKey; startsAt: Date; open: [number, number] };
+
 async function seedVenuesAndEvents() {
   const venueIds = {} as Record<VenueKey, string>;
   for (const v of VENUES) {
@@ -124,21 +158,23 @@ async function seedVenuesAndEvents() {
     venueIds[v.key] = row.id;
   }
 
-  const events: { id: string; venue: VenueKey; startsAt: Date; type: EventType }[] = [];
-  for (const e of EVENTS) {
-    const startsAt = localEventTime(e.week, e.weekday, e.hour, e.minute);
+  const events: SeededEvent[] = [];
+  const production = process.env.NODE_ENV === "production";
+  for (const e of EVENTS.filter((x) => !(production && x.demo))) {
+    const startsAt = localEventTime(e.week, e.weekday, e.hour, e.minute, e.plusDays);
+    const data = { name: e.name, type: e.type, startsAt, venueId: venueIds[e.venue], isDemo: e.demo ?? false };
     const row = await db.event.upsert({
       where: { source_externalId: { source: "seed", externalId: e.key } },
-      update: { name: e.name, type: e.type, startsAt, venueId: venueIds[e.venue] },
-      create: { source: "seed", externalId: e.key, name: e.name, type: e.type, startsAt, venueId: venueIds[e.venue] },
+      update: data,
+      create: { source: "seed", externalId: e.key, ...data },
     });
-    events.push({ id: row.id, venue: e.venue, startsAt, type: e.type });
+    events.push({ id: row.id, venue: e.venue, startsAt, open: e.open ?? [4, 4] });
   }
   console.log(`✓ ${VENUES.length} venues, ${events.length} events`);
   return { venueIds, events };
 }
 
-async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id: string; venue: VenueKey; startsAt: Date; type: EventType }[]) {
+async function seedDemoListings(venueIds: Record<VenueKey, string>, events: SeededEvent[]) {
   // Bookings reference listings, so clear demo bookings first.
   await db.booking.deleteMany({ where: { listing: { isDemo: true } } });
   await db.listing.deleteMany({ where: { isDemo: true } });
@@ -179,16 +215,18 @@ async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id
 
   const rand = mulberry32(2026);
   // Campus-area spots serve both DKR and Moody Center; a smaller cluster serves Q2.
-  const clusters: { center: VenueKey; venues: VenueKey[]; count: number }[] = [
-    { center: "dkr", venues: ["dkr", "moody"], count: 12 },
-    { center: "q2", venues: ["q2"], count: 6 },
+  // Zilker spots sit south/east/west of the park (Lady Bird Lake is to the north), priced for festival demand.
+  const clusters: { center: VenueKey; venues: VenueKey[]; count: number; minM: number; maxM: number; bearings?: [number, number]; priceBoost?: number }[] = [
+    { center: "dkr", venues: ["dkr", "moody"], count: 12, minM: 350, maxM: 1400 },
+    { center: "q2", venues: ["q2"], count: 6, minM: 350, maxM: 1400 },
+    { center: "zilker", venues: ["zilker"], count: 10, minM: 700, maxM: 1700, bearings: [100, 260], priceBoost: 1500 },
   ];
 
   let created = 0;
   for (const cluster of clusters) {
     const c = VENUES.find((v) => v.key === cluster.center)!;
     for (let i = 0; i < cluster.count; i++) {
-      const spot = pointNear(c, 350, 1400, rand);
+      const spot = pointNear(c, cluster.minM, cluster.maxM, rand, cluster.bearings);
       const approx = fuzzPoint(spot, rand);
       const road = await streetName(spot);
       const host = hosts[i % hosts.length];
@@ -197,8 +235,8 @@ async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id
       const address = `${100 + Math.floor(rand() * 3800)} ${road ?? "Demo St"}, Austin, TX (demo address)`;
       const carCount = 1 + Math.floor(rand() * 3);
       const mode: PricingMode = (["FLAT", "FLAT", "HOURLY", "BOTH"] as const)[Math.floor(rand() * 4)];
-      const flat = 1500 + Math.round(rand() * 5) * 500; // $15–$40
-      const hourly = 400 + Math.round(rand() * 4) * 100; // $4–$8/hr
+      const flat = 1500 + Math.round(rand() * 5) * 500 + (cluster.priceBoost ?? 0); // $15–$40 (+ festival boost)
+      const hourly = 400 + Math.round(rand() * 4) * 100 + Math.round((cluster.priceBoost ?? 0) / 5); // $4–$8/hr
 
       for (const vKey of cluster.venues) {
         const venue = VENUES.find((v) => v.key === vKey)!;
@@ -217,8 +255,10 @@ async function seedDemoListings(venueIds: Record<VenueKey, string>, events: { id
               pricingMode: mode,
               flatPrice: mode === "HOURLY" ? null : flat,
               hourlyRate: mode === "FLAT" ? null : hourly,
-              openFrom: new Date(ev.startsAt.getTime() - 4 * 3600_000),
-              openUntil: new Date(ev.startsAt.getTime() + 4 * 3600_000),
+              openFrom: new Date(ev.startsAt.getTime() - ev.open[0] * 3600_000),
+              openUntil: new Date(ev.startsAt.getTime() + ev.open[1] * 3600_000),
+              opensHoursBefore: ev.open[0],
+              closesHoursAfter: ev.open[1],
               address,
               instructions: note,
               lat: spot.lat,

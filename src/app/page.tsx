@@ -57,7 +57,7 @@ async function nearPoint(): Promise<{ point: LatLng; known: boolean }> {
 async function Upcoming() {
   await connection(); // "upcoming" depends on the current time
   const { point, known } = await nearPoint();
-  const events = (await upcomingEvents({ near: point })).slice(0, 8);
+  const events = (await upcomingEvents({ near: point })).slice(0, 10);
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-2">

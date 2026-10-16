@@ -2,7 +2,7 @@ import "server-only";
 import { connection } from "next/server";
 import { db } from "@/lib/db";
 import { distanceMeters, type LatLng } from "@/lib/geo";
-import { UPCOMING_DAYS } from "@/lib/search";
+import { DEMO_EVENTS_HIDDEN, UPCOMING_DAYS } from "@/lib/search";
 
 /** Beyond this, drivers rarely walk; the form warns the host. */
 export const FAR_FROM_VENUE_M = 1609;
@@ -21,7 +21,7 @@ export async function venuesNear(point: LatLng): Promise<VenueOption[]> {
   const venues = await db.venue.findMany({
     include: {
       events: {
-        where: { startsAt: { gte: new Date(now), lte: new Date(now + UPCOMING_DAYS * 86_400_000) } },
+        where: { startsAt: { gte: new Date(now), lte: new Date(now + UPCOMING_DAYS * 86_400_000) }, ...DEMO_EVENTS_HIDDEN },
         orderBy: { startsAt: "asc" },
         select: { id: true, name: true, startsAt: true },
       },

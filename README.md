@@ -17,7 +17,7 @@ npm run dev            # http://localhost:3000
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Start the dev server |
-| `npm run db:seed` | Seed venues/events; demo listings outside production |
+| `npm run db:seed` | Seed venues/events; outside production also demo concerts (ACL, Bryson Tiller, Doja Cat — real artists, made-up dates) and demo driveways. Re-seeding replaces demo listings and their bookings. |
 | `npm run db:migrate` | Apply schema changes |
 | `npm run db:studio` | Browse the local database |
 | `npm run sync:events` | Pull events from Ticketmaster (needs `TICKETMASTER_API_KEY`; see terms note below) |
