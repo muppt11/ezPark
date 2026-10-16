@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/*
+ * ezPark design tokens.
+ * Palette: Maire, Frost Ash, Soft Grey Brown, Struck By Lightning, Space Cadet, Azure Twilight.
+ * Shades marked (AA) were adjusted from the source palette to pass WCAG AA (4.5:1 text, 3:1 UI).
+ * The theme script in layout.tsx always sets data-theme to "light" or "dark" before first paint.
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f7f5f6;
+  --surface: #ffffff;
+  --surface-subtle: #efe0e5;
+  --text: #282822;
+  --muted: #736b67; /* (AA) was #99918D */
+  --border: rgb(164 161 166 / 0.35);
+  --border-strong: #8a827e; /* input outlines, 3:1 */
+  --primary: #1d2953;
+  --primary-text: #ffffff;
+  --accent: #b52253; /* (AA) was #C2255C */
+  --accent-text: #ffffff;
+  --accent-subtle: #efe0e5;
+  --danger: #b42318;
+  --success: #1f7a4d;
+  --shadow: 0 1px 2px rgb(40 40 34 / 0.06), 0 4px 12px rgb(40 40 34 / 0.06);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #282822;
+  --surface: #33332d;
+  --surface-subtle: #3d3d36;
+  --text: #efe0e5;
+  --muted: #b3b0b5; /* (AA) was #A4A1A6 */
+  --border: #55554e;
+  --border-strong: #7d7d75;
+  --primary: #7aa7ea; /* (AA) was #6596E3 */
+  --primary-text: #282822;
+  --accent: #f78fc6; /* (AA) was #F472B6 */
+  --accent-text: #282822;
+  --accent-subtle: #3d3d36;
+  --danger: #f97066;
+  --success: #4ade80;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+/* `dark:` utilities follow the resolved theme, including "system". */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-text: var(--primary-text);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --shadow-card: var(--shadow);
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+  --font-sans: var(--font-jakarta);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
