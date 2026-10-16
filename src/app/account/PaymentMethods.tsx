@@ -7,7 +7,6 @@ import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-
 import { CreditCard, Plus } from "lucide-react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { useResolvedTheme } from "@/lib/use-theme";
 import type { SavedCard } from "@/lib/stripe";
 import { createCardSetup, removeCard } from "./actions";
 
@@ -121,13 +120,12 @@ function CardForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
   );
 }
 
-/** Match Stripe's form to the current theme tokens. */
+/** Match Stripe's form to the theme tokens. */
 function useStripeAppearance(): Appearance {
-  const theme = useResolvedTheme();
   const css = typeof window === "undefined" ? null : getComputedStyle(document.documentElement);
   const v = (name: string) => css?.getPropertyValue(name).trim() || undefined;
   return {
-    theme: theme === "dark" ? "night" : "stripe",
+    theme: "stripe",
     variables: {
       colorPrimary: v("--primary"),
       colorBackground: v("--surface"),

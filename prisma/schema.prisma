@@ -22,8 +22,6 @@ model User {
   isHost       Boolean  @default(false)
   /// Last role used in the app; restored on next visit by the role switcher.
   lastRole     Role     @default(DRIVER)
-  /// "light" | "dark" | "system"; mirrors the theme cookie so it follows the account.
-  themePref    String   @default("system")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

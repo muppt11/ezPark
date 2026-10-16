@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
@@ -11,7 +11,6 @@ import { sendEmail } from "@/lib/email";
 import { getCurrentUser } from "@/lib/current-user";
 import { allow, clientIp } from "@/lib/rate-limit";
 import { TERMS_VERSION } from "@/lib/terms";
-import { THEME_COOKIE, type ThemePref } from "@/lib/theme";
 import { loginSchema, resetPasswordSchema, ROLES_REQUIRED, signupSchema } from "@/lib/validation";
 
 export type FormState = {
@@ -79,7 +78,6 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
       isDriver: data.wantsDriver,
       isHost: data.wantsHost,
       lastRole: data.wantsDriver ? "DRIVER" : "HOST",
-      themePref: readThemeCookie(await cookies()),
       termsAcceptances: { create: { version: TERMS_VERSION, ...meta } },
     },
   });
@@ -107,10 +105,6 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     if (err instanceof AuthError) return { error: "That email and password don't match.", values: { email } };
     throw err;
   }
-
-  // Restore the theme saved on the account so it follows the user across devices.
-  const user = await db.user.findUnique({ where: { email: parsed.data.email }, select: { themePref: true } });
-  if (user) (await cookies()).set(THEME_COOKIE, user.themePref, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
 
   redirect(safeNext(formData.get("next"), "/"));
 }
@@ -177,14 +171,3 @@ export async function acceptCurrentTerms(_prev: FormState, formData: FormData): 
   redirect(safeNext(formData.get("next"), "/"));
 }
 
-/** Called by the theme toggle. No-op when signed out (the cookie alone remembers it). */
-export async function saveThemePref(pref: ThemePref) {
-  if (pref !== "light" && pref !== "dark" && pref !== "system") return;
-  const user = await getCurrentUser();
-  if (user) await db.user.update({ where: { id: user.id }, data: { themePref: pref } });
-}
-
-function readThemeCookie(jar: Awaited<ReturnType<typeof cookies>>): ThemePref {
-  const v = jar.get(THEME_COOKIE)?.value;
-  return v === "light" || v === "dark" ? v : "system";
-}

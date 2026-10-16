@@ -4,7 +4,6 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, CircleUserRound } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { NavUser } from "./types";
 import { useDismiss } from "./use-dismiss";
 
@@ -78,10 +77,6 @@ export function DesktopNav({ user }: { user: NavUser }) {
                 </Link>
               </>
             )}
-            <div className="mt-2 border-t border-border px-1 pt-3 pb-1">
-              <p className="mb-2 px-2 text-sm text-muted">Appearance</p>
-              <ThemeToggle className="w-full" />
-            </div>
           </div>
         )}
       </div>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CircleUserRound, House, Menu, Search, Ticket, X } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { NavUser } from "./types";
 import { useDismiss } from "./use-dismiss";
 
@@ -36,9 +35,7 @@ export function BottomNav({ user }: { user: NavUser }) {
               <X size={20} />
             </button>
           </div>
-          <p className="mb-2 text-sm text-muted">Appearance</p>
-          <ThemeToggle className="w-full" />
-          <div className="mt-4 divide-y divide-border border-t border-border">
+          <div className="divide-y divide-border border-t border-border">
             <Link href="/terms" onClick={close} className="block py-3.5">
               Terms
             </Link>

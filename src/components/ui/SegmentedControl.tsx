@@ -34,7 +34,7 @@ export function SegmentedControl<T extends string>({
   const selected =
     tone === "accent"
       ? "bg-accent text-accent-text shadow-card"
-      : "bg-surface text-text shadow-card dark:bg-bg dark:ring-1 dark:ring-border-strong";
+      : "bg-surface text-text shadow-card";
 
   return (
     <div

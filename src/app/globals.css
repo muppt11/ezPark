@@ -4,11 +4,10 @@
  * ezPark design tokens.
  * Palette: Maire, Frost Ash, Soft Grey Brown, Struck By Lightning, Space Cadet, Azure Twilight.
  * Shades marked (AA) were adjusted from the source palette to pass WCAG AA (4.5:1 text, 3:1 UI).
- * The theme script in layout.tsx always sets data-theme to "light" or "dark" before first paint.
+ * Light theme only.
  */
 
-:root,
-[data-theme="light"] {
+:root {
   color-scheme: light;
   --bg: #f7f5f6;
   --surface: #ffffff;
@@ -26,28 +25,6 @@
   --success: #1f7a4d;
   --shadow: 0 1px 2px rgb(40 40 34 / 0.06), 0 4px 12px rgb(40 40 34 / 0.06);
 }
-
-[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #282822;
-  --surface: #33332d;
-  --surface-subtle: #3d3d36;
-  --text: #efe0e5;
-  --muted: #b3b0b5; /* (AA) was #A4A1A6 */
-  --border: #55554e;
-  --border-strong: #7d7d75;
-  --primary: #7aa7ea; /* (AA) was #6596E3 */
-  --primary-text: #282822;
-  --accent: #f78fc6; /* (AA) was #F472B6 */
-  --accent-text: #282822;
-  --accent-subtle: #3d3d36;
-  --danger: #f97066;
-  --success: #4ade80;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
-}
-
-/* `dark:` utilities follow the resolved theme, including "system". */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-bg: var(--bg);
@@ -125,9 +102,6 @@ body {
 }
 .maplibregl-ctrl-group button + button {
   border-top-color: var(--border) !important;
-}
-[data-theme="dark"] .maplibregl-ctrl-icon {
-  filter: invert(1);
 }
 
 :focus-visible {

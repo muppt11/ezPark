@@ -3,13 +3,9 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { LngLatBounds, Map as MapLibre, Marker, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useResolvedTheme } from "@/lib/use-theme";
 
 /** OpenFreeMap (OpenStreetMap data), no API key. */
-const STYLES = {
-  light: "https://tiles.openfreemap.org/styles/positron",
-  dark: "https://tiles.openfreemap.org/styles/dark",
-} as const;
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 // Copied into public/ by scripts/copy-maplibre-worker.mjs (runs on npm install).
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
@@ -34,7 +30,6 @@ type Props = {
 export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCircle, interactive = true, className = "" }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibre | null>(null);
-  const theme = useResolvedTheme();
   // Latest callbacks for DOM marker listeners, without re-creating markers.
   const handlers = useRef({ onHover, onSelect });
   useLayoutEffect(() => {
@@ -46,7 +41,7 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
     if (!container.current) return;
     const m = new MapLibre({
       container: container.current,
-      style: STYLES[document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"],
+      style: MAP_STYLE,
       center: [venue.lng, venue.lat],
       zoom: 14,
       attributionControl: { compact: true },
@@ -66,11 +61,6 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
       map.current = null;
     };
   }, [venue.lat, venue.lng, venue.name, interactive]);
-
-  // Swap tile style with the theme. DOM markers survive setStyle.
-  useEffect(() => {
-    map.current?.setStyle(STYLES[theme]);
-  }, [theme]);
 
   // Price pins, grouped into count bubbles where they'd overlap at the current zoom.
   useEffect(() => {
@@ -168,7 +158,7 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
     });
   }, [activeId, pins]);
 
-  // Approximate-location circle, re-added after every style load (setStyle drops layers).
+  // Approximate-location circle, added once the map style has loaded.
   useEffect(() => {
     const m = map.current;
     if (!m || !approxCircle) return;
@@ -184,7 +174,7 @@ export function ParkingMap({ venue, pins, activeId, onHover, onSelect, approxCir
     return () => {
       m.off("style.load", add);
     };
-  }, [approxCircle, theme]);
+  }, [approxCircle]);
 
   return <div ref={container} className={`h-full w-full ${className}`} />;
 }

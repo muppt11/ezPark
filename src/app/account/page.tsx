@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { logout } from "@/app/(auth)/actions";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/current-user";
 import { listCards, stripePublishableKey } from "@/lib/stripe";
@@ -60,10 +59,6 @@ async function AccountBody({ searchParams }: Pick<PageProps<"/account">, "search
       <div className="divide-y divide-border border-t border-border">
         <Section title="Payment methods" description="Saved cards for reserving driveways. Card details are stored by Stripe, not ezPark.">
           <PaymentMethods cards={cards} publishableKey={stripePublishableKey()} />
-        </Section>
-
-        <Section title="Appearance">
-          <ThemeToggle className="w-full sm:w-auto" />
         </Section>
 
         <Section title="Terms">

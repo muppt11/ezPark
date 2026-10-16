@@ -8,7 +8,7 @@ const variants: Record<Variant, string> = {
   accent: "bg-accent text-accent-text hover:opacity-90",
   secondary: "border border-border-strong bg-surface text-text hover:bg-surface-subtle",
   ghost: "text-primary hover:bg-surface-subtle",
-  danger: "bg-danger text-white hover:opacity-90 dark:text-bg",
+  danger: "bg-danger text-white hover:opacity-90",
 };
 
 const sizes: Record<Size, string> = {
