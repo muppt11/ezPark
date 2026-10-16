@@ -9,6 +9,8 @@ import { setupPayouts, type PayoutState } from "../actions";
 export function PayoutForm({ defaultName }: { defaultName: string }) {
   const [state, action, pending] = useActionState<PayoutState, FormData>(setupPayouts, {});
   const err = state.fieldErrors ?? {};
+  const v = state.values;
+  const holder = useRef<HTMLInputElement>(null);
   const routing = useRef<HTMLInputElement>(null);
   const account = useRef<HTMLInputElement>(null);
 
@@ -22,17 +24,19 @@ export function PayoutForm({ defaultName }: { defaultName: string }) {
             type="button"
             className="font-semibold text-primary underline"
             onClick={() => {
+              // Keep a real-looking name if there is one; otherwise use a test name.
+              if (holder.current && holder.current.value.trim().length < 2) holder.current.value = "Test Host";
               if (routing.current) routing.current.value = "110000000";
               if (account.current) account.current.value = "000123456789";
             }}
           >
-            Fill test bank details
+            Fill test details
           </button>
         </p>
       </div>
-      <Field label="Account holder name" name="holderName" defaultValue={defaultName} autoComplete="name" error={err.holderName} />
-      <Field ref={routing} label="Routing number" name="routing" inputMode="numeric" autoComplete="off" error={err.routing} />
-      <Field ref={account} label="Account number" name="account" inputMode="numeric" autoComplete="off" error={err.account} />
+      <Field ref={holder} label="Account holder name" name="holderName" defaultValue={v?.holderName ?? defaultName} autoComplete="name" error={err.holderName} />
+      <Field ref={routing} label="Routing number" name="routing" defaultValue={v?.routing} inputMode="numeric" autoComplete="off" error={err.routing} />
+      <Field ref={account} label="Account number" name="account" defaultValue={v?.account} inputMode="numeric" autoComplete="off" error={err.account} />
       <Button type="submit" size="lg" fullWidth disabled={pending}>
         {pending ? "Saving…" : "Save and publish"}
       </Button>

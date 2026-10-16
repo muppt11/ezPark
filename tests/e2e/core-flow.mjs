@@ -67,7 +67,7 @@ try {
   await host.click("button:has-text('Continue to payout setup')");
   await host.waitForURL("**/host/payouts?from=listing");
   await shot(host, "2-host-payouts");
-  await host.click("text=Fill test bank details");
+  await host.click("text=Fill test details");
   await host.click("button:has-text('Save and publish')");
   await host.waitForURL((u) => u.pathname === "/host" && u.searchParams.has("published"));
   const listSecs = (Date.now() - listStart) / 1000;

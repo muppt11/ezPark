@@ -150,7 +150,7 @@ export async function createListing(_prev: ListingFormState, formData: FormData)
   redirect(`/host?${venue.events.length ? `published=${venue.events.length}` : "draft=1"}`);
 }
 
-export type PayoutState = { fieldErrors?: Record<string, string> };
+export type PayoutState = { fieldErrors?: Record<string, string>; values?: Record<string, string> };
 
 const payoutSchema = z.object({
   holderName: z.string().trim().min(2, "Enter the account holder's name.").max(80),
@@ -161,12 +161,14 @@ const payoutSchema = z.object({
 /** Test-mode payout onboarding. Publishes any drafts that are waiting on it. */
 export async function setupPayouts(_prev: PayoutState, formData: FormData): Promise<PayoutState> {
   const user = await requireHostUser("/host/payouts");
-  const parsed = payoutSchema.safeParse({
-    holderName: formData.get("holderName") ?? "",
+  const input = {
+    holderName: String(formData.get("holderName") ?? ""),
     routing: String(formData.get("routing") ?? "").replace(/\D/g, ""),
     account: String(formData.get("account") ?? "").replace(/\D/g, ""),
-  });
-  if (!parsed.success) return { fieldErrors: firstErrors(parsed.error.issues) };
+  };
+  const parsed = payoutSchema.safeParse(input);
+  // Echo the input back so a validation error doesn't wipe what the host typed.
+  if (!parsed.success) return { fieldErrors: firstErrors(parsed.error.issues), values: input };
 
   const acct = createPayoutAccount(parsed.data.holderName, parsed.data.account.slice(-4));
   await db.user.update({
