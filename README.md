@@ -47,6 +47,16 @@ The account page's "Add a card" uses real Stripe SetupIntents once `STRIPE_SECRE
 - **Driver protection:** "Report a problem → spot blocked" refunds in full instantly and shows comparable driveways for the same event. Drivers can cancel for a full refund up to 24 hours before start.
 - **Host strikes:** host cancellations refund the driver; 3 in 90 days pauses the host's listings.
 
+## Challenges
+
+**Trust on both sides.** Hosts don't want strangers knowing their address, and drivers don't want to pay for a spot that's taken. Search pages only ever get a fuzzed location, and the exact address unlocks after payment.
+
+**No double booking.** Two people booking the last spot at the same moment could both succeed. The capacity check runs inside the booking transaction, so a driveway never takes more cars than it fits.
+
+**One driveway, many venues.** A driveway near both a stadium and an arena should work for both. I reworked listings so a host can attach one driveway to events at several venues at once.
+
+**Flaky end to end tests.** The browser test sometimes checked the reservation page before it finished loading. It now waits for the reservation details to appear, which made the test reliable.
+
 ## Stack
 
 Next.js (App Router, Cache Components) · TypeScript · Tailwind CSS with CSS-variable design tokens (`src/app/globals.css`) · Prisma + SQLite · Auth.js (email/password) · MapLibre + OpenFreeMap tiles · OSRM walking routes · Nominatim geocoding.
